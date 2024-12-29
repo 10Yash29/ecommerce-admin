@@ -1,17 +1,17 @@
-import { NextResponse } from 'next/server'
-import Stripe from 'stripe'
-
-import prismadb from '@/lib/prismadb'
-import { stripe } from '@/lib/stripe'
+]import { NextResponse } from 'next/server';
+import Stripe from 'stripe';
+import prismadb from '@/lib/prismadb';
+import { stripe } from '@/lib/stripe';
 
 const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': 'https://ecommerce-store-lqt4-k88rubfjr-yash-kumars-projects-e8a8ecbb.vercel.app',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-}
+};
 
+// Handle preflight requests
 export async function OPTIONS() {
-    return NextResponse.json({}, { headers: corsHeaders })
+    return NextResponse.json({}, { headers: corsHeaders });
 }
 
 export async function POST(
@@ -19,76 +19,65 @@ export async function POST(
     {
         params,
     }: {
-        params: {
-            storeId: string
-        }
-    },
-) {
-    const { productIds } = await req.json()
-
-    if (!productIds) {
-        return new NextResponse("Missing 'productIds' in request body", {
-            status: 400,
-        })
+        params: { storeId: string };
     }
+) {
+    try {
+        const { productIds } = await req.json();
 
-    const products = await prismadb.product.findMany({
-        where: {
-            id: {
-                in: productIds,
-            },
-        },
-    })
+        if (!productIds) {
+            return new NextResponse("Missing 'productIds' in request body", {
+                status: 400,
+                headers: corsHeaders,
+            });
+        }
 
-    const line_items: Stripe.Checkout.SessionCreateParams.LineItem[] = []
+        const products = await prismadb.product.findMany({
+            where: { id: { in: productIds } },
+        });
 
-    products.forEach((product) => {
-        line_items.push({
-            quantity: 1,
-            price_data: {
-                currency: 'USD',
-                product_data: {
-                    name: product.name,
+        const line_items: Stripe.Checkout.SessionCreateParams.LineItem[] = products.map(
+            (product) => ({
+                quantity: 1,
+                price_data: {
+                    currency: 'USD',
+                    product_data: { name: product.name },
+                    unit_amount: product.price.toNumber() * 100,
                 },
-                unit_amount: product.price.toNumber() * 100,
+            })
+        );
+
+        const order = await prismadb.order.create({
+            data: {
+                storeId: params.storeId,
+                isPaid: false,
+                orderItems: {
+                    create: productIds.map((productId: string) => ({
+                        product: { connect: { id: productId } },
+                    })),
+                },
             },
-        })
-    })
+        });
 
-    const order = await prismadb.order.create({
-        data: {
-            storeId: params.storeId,
-            isPaid: false,
-            orderItems: {
-                create: productIds.map((productId: string) => ({
-                    product: {
-                        connect: {
-                            id: productId,
-                        },
-                    },
-                })),
-            },
-        },
-    })
+        const session = await stripe.checkout.sessions.create({
+            line_items,
+            mode: 'payment',
+            billing_address_collection: 'required',
+            phone_number_collection: { enabled: true },
+            success_url: `${process.env.FRONTEND_STORE_URL}/cart?success=1`,
+            cancel_url: `${process.env.FRONTEND_STORE_URL}/cart?canceled=1`,
+            metadata: { orderId: order.id },
+        });
 
-    const session = await stripe.checkout.sessions.create({
-        line_items,
-        mode: 'payment',
-        billing_address_collection: 'required',
-        phone_number_collection: {
-            enabled: true,
-        },
-        success_url: `${process.env.FRONTEND_STORE_URL}/cart?success=1`,
-        cancel_url: `${process.env.FRONTEND_STORE_URL}/cart?canceled=1`,
-        metadata: {
-            orderId: order.id,
-        },
-    })
-
-    return NextResponse.json(
-        { url: session.url },
-        {
+        return NextResponse.json(
+            { url: session.url },
+            { headers: corsHeaders }
+        );
+    } catch (error) {
+        console.error(error);
+        return new NextResponse('Internal server error', {
+            status: 500,
             headers: corsHeaders,
-        },
-    )
+        });
+    }
 }
