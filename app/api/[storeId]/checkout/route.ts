@@ -8,6 +8,7 @@ const allowedOrigins = [
     'https://ecommerce-store-lqt4-k88rubfjr-yash-kumars-projects-e8a8ecbb.vercel.app', // Add other allowed origins
 ];
 
+// Handle preflight requests
 export async function OPTIONS(req: Request) {
     const origin = req.headers.get('Origin');
     const isAllowedOrigin = allowedOrigins.includes(origin || '');
@@ -16,7 +17,7 @@ export async function OPTIONS(req: Request) {
         {},
         {
             headers: {
-                'Access-Control-Allow-Origin': isAllowedOrigin ? origin : '',
+                'Access-Control-Allow-Origin': isAllowedOrigin ? origin || '' : '',
                 'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
                 'Access-Control-Allow-Headers': 'Content-Type, Authorization',
                 'Vary': 'Origin',
@@ -25,6 +26,7 @@ export async function OPTIONS(req: Request) {
     );
 }
 
+// Main POST handler
 export async function POST(
     req: Request,
     {
@@ -53,7 +55,7 @@ export async function POST(
             return new NextResponse("Missing 'productIds' in request body", {
                 status: 400,
                 headers: {
-                    'Access-Control-Allow-Origin': origin,
+                    'Access-Control-Allow-Origin': origin || '',
                     'Vary': 'Origin',
                 },
             });
@@ -100,7 +102,7 @@ export async function POST(
             { url: session.url },
             {
                 headers: {
-                    'Access-Control-Allow-Origin': origin,
+                    'Access-Control-Allow-Origin': origin || '',
                     'Vary': 'Origin',
                 },
             }
@@ -110,7 +112,7 @@ export async function POST(
         return new NextResponse('Internal server error', {
             status: 500,
             headers: {
-                'Access-Control-Allow-Origin': req.headers.get('Origin'),
+                'Access-Control-Allow-Origin': req.headers.get('Origin') || '',
                 'Vary': 'Origin',
             },
         });
