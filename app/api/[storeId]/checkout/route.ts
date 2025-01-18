@@ -3,15 +3,26 @@ import Stripe from 'stripe';
 import prismadb from '@/lib/prismadb';
 import { stripe } from '@/lib/stripe';
 
-const corsHeaders = {
-    'Access-Control-Allow-Origin': 'https://ecommerce-store-lqt4-k88rubfjr-yash-kumars-projects-e8a8ecbb.vercel.app',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-};
+const allowedOrigins = [
+    'https://ecommerce-store-lqt4.vercel.app',
+    'https://ecommerce-store-lqt4-k88rubfjr-yash-kumars-projects-e8a8ecbb.vercel.app', // Add other allowed origins
+];
 
-// Handle preflight requests
-export async function OPTIONS() {
-    return NextResponse.json({}, { headers: corsHeaders });
+export async function OPTIONS(req: Request) {
+    const origin = req.headers.get('Origin');
+    const isAllowedOrigin = allowedOrigins.includes(origin || '');
+
+    return NextResponse.json(
+        {},
+        {
+            headers: {
+                'Access-Control-Allow-Origin': isAllowedOrigin ? origin : '',
+                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+                'Vary': 'Origin',
+            },
+        }
+    );
 }
 
 export async function POST(
@@ -23,12 +34,28 @@ export async function POST(
     }
 ) {
     try {
+        const origin = req.headers.get('Origin');
+        const isAllowedOrigin = allowedOrigins.includes(origin || '');
+
+        if (!isAllowedOrigin) {
+            return new NextResponse('CORS not allowed', {
+                status: 403,
+                headers: {
+                    'Access-Control-Allow-Origin': '',
+                    'Vary': 'Origin',
+                },
+            });
+        }
+
         const { productIds } = await req.json();
 
         if (!productIds) {
             return new NextResponse("Missing 'productIds' in request body", {
                 status: 400,
-                headers: corsHeaders,
+                headers: {
+                    'Access-Control-Allow-Origin': origin,
+                    'Vary': 'Origin',
+                },
             });
         }
 
@@ -71,13 +98,21 @@ export async function POST(
 
         return NextResponse.json(
             { url: session.url },
-            { headers: corsHeaders }
+            {
+                headers: {
+                    'Access-Control-Allow-Origin': origin,
+                    'Vary': 'Origin',
+                },
+            }
         );
     } catch (error) {
         console.error(error);
         return new NextResponse('Internal server error', {
             status: 500,
-            headers: corsHeaders,
+            headers: {
+                'Access-Control-Allow-Origin': req.headers.get('Origin'),
+                'Vary': 'Origin',
+            },
         });
     }
 }
