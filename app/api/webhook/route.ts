@@ -28,12 +28,23 @@ export async function POST(req: Request) {
             return new NextResponse('Missing metadata', { status: 400 });
         }
 
+        // Extract phone and address from the session
+        const phone = session.customer_details?.phone || '';
+        const address = session.customer_details?.address
+            ? `${session.customer_details.address.line1}, ${session.customer_details.address.city}, ${session.customer_details.address.postal_code}, ${session.customer_details.address.country}`
+            : '';
+
         const order = await prismadb.order.update({
             where: { id: orderId },
-            data: { isPaid: true },
+            data: {
+                isPaid: true,
+                phone, // Update phone
+                address, // Update address
+            },
             include: { orderItems: true },
         });
 
+        // Log the user product purchase interaction
         await Promise.all(
             order.orderItems.map((item) =>
                 prismadb.userProductInteraction.create({
