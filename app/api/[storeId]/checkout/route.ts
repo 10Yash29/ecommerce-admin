@@ -12,11 +12,16 @@ export async function OPTIONS(req: Request) {
     const origin = req.headers.get('origin');
     const isAllowedOrigin = allowedOrigins.includes(origin || '');
 
-    const headers = {
-        'Access-Control-Allow-Origin': isAllowedOrigin ? origin : '*',
+    const headers: Record<string, string> = {
         'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     };
+
+    if (isAllowedOrigin && origin) {
+        headers['Access-Control-Allow-Origin'] = origin;
+    } else {
+        headers['Access-Control-Allow-Origin'] = '*'; // Fallback to wildcard
+    }
 
     return NextResponse.json({}, { headers });
 }
@@ -26,6 +31,17 @@ export async function POST(req: Request, { params }: { params: { storeId: string
         const origin = req.headers.get('origin');
         const isAllowedOrigin = allowedOrigins.includes(origin || '');
 
+        const headers: Record<string, string> = {
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        };
+
+        if (isAllowedOrigin && origin) {
+            headers['Access-Control-Allow-Origin'] = origin;
+        } else {
+            headers['Access-Control-Allow-Origin'] = '*'; // Fallback to wildcard
+        }
+
         const { productIds, userId } = await req.json();
 
         if (!productIds?.length || !userId) {
@@ -33,11 +49,7 @@ export async function POST(req: Request, { params }: { params: { storeId: string
                 { message: "Missing 'productIds' or 'userId'" },
                 {
                     status: 400,
-                    headers: {
-                        'Access-Control-Allow-Origin': isAllowedOrigin ? origin : '*',
-                        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-                    },
+                    headers,
                 }
             );
         }
@@ -85,13 +97,7 @@ export async function POST(req: Request, { params }: { params: { storeId: string
 
         return NextResponse.json(
             { url: session.url },
-            {
-                headers: {
-                    'Access-Control-Allow-Origin': isAllowedOrigin ? origin : '*',
-                    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-                },
-            }
+            { headers }
         );
     } catch (error) {
         console.error('CHECKOUT_POST_ERROR', error);
