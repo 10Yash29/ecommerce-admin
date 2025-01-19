@@ -3,24 +3,39 @@ import Stripe from 'stripe';
 import prismadb from '@/lib/prismadb';
 import { stripe } from '@/lib/stripe';
 
-const corsHeaders = {
-    'Access-Control-Allow-Origin': 'https://ecommerce-store-lqt4-g7t31x5xv-yash-kumars-projects-e8a8ecbb.vercel.app', // Replace with your frontend domain
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-};
+const allowedOrigins = [
+    'https://ecommerce-store-lqt4-g7t31x5xv-yash-kumars-projects-e8a8ecbb.vercel.app',
+    'https://ecommerce-store-lqt4-dgr2j4b5e-yash-kumars-projects-e8a8ecbb.vercel.app',
+];
 
-export async function OPTIONS() {
-    return NextResponse.json({}, { headers: corsHeaders });
+export async function OPTIONS(req: Request) {
+    const origin = req.headers.get('origin');
+    const isAllowedOrigin = allowedOrigins.includes(origin || '');
+
+    return NextResponse.json({}, {
+        headers: {
+            'Access-Control-Allow-Origin': isAllowedOrigin ? origin : '*',
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        },
+    });
 }
 
 export async function POST(req: Request, { params }: { params: { storeId: string } }) {
     try {
+        const origin = req.headers.get('origin');
+        const isAllowedOrigin = allowedOrigins.includes(origin || '');
+
         const { productIds, userId } = await req.json();
 
         if (!productIds?.length || !userId) {
             return new NextResponse("Missing 'productIds' or 'userId'", {
                 status: 400,
-                headers: corsHeaders,
+                headers: {
+                    'Access-Control-Allow-Origin': isAllowedOrigin ? origin : '*',
+                    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+                },
             });
         }
 
@@ -65,9 +80,22 @@ export async function POST(req: Request, { params }: { params: { storeId: string
             },
         });
 
-        return NextResponse.json({ url: session.url }, { headers: corsHeaders });
+        return NextResponse.json({ url: session.url }, {
+            headers: {
+                'Access-Control-Allow-Origin': isAllowedOrigin ? origin : '*',
+                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+            },
+        });
     } catch (error) {
         console.error('CHECKOUT_POST_ERROR', error);
-        return new NextResponse('Internal server error', { status: 500, headers: corsHeaders });
+        return new NextResponse('Internal server error', {
+            status: 500,
+            headers: {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+            },
+        });
     }
 }
