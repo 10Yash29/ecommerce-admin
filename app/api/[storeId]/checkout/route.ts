@@ -12,13 +12,13 @@ export async function OPTIONS(req: Request) {
     const origin = req.headers.get('origin');
     const isAllowedOrigin = allowedOrigins.includes(origin || '');
 
-    return NextResponse.json({}, {
-        headers: {
-            'Access-Control-Allow-Origin': isAllowedOrigin ? origin : '*',
-            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        },
-    });
+    const headers = {
+        'Access-Control-Allow-Origin': isAllowedOrigin ? origin : '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    };
+
+    return NextResponse.json({}, { headers });
 }
 
 export async function POST(req: Request, { params }: { params: { storeId: string } }) {
@@ -29,14 +29,17 @@ export async function POST(req: Request, { params }: { params: { storeId: string
         const { productIds, userId } = await req.json();
 
         if (!productIds?.length || !userId) {
-            return new NextResponse("Missing 'productIds' or 'userId'", {
-                status: 400,
-                headers: {
-                    'Access-Control-Allow-Origin': isAllowedOrigin ? origin : '*',
-                    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-                },
-            });
+            return NextResponse.json(
+                { message: "Missing 'productIds' or 'userId'" },
+                {
+                    status: 400,
+                    headers: {
+                        'Access-Control-Allow-Origin': isAllowedOrigin ? origin : '*',
+                        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+                    },
+                }
+            );
         }
 
         const products = await prismadb.product.findMany({
@@ -57,7 +60,7 @@ export async function POST(req: Request, { params }: { params: { storeId: string
         const order = await prismadb.order.create({
             data: {
                 storeId: params.storeId,
-                userId,
+                userId, // Add userId here
                 isPaid: false,
                 orderItems: {
                     create: productIds.map((productId: string) => ({
@@ -75,27 +78,33 @@ export async function POST(req: Request, { params }: { params: { storeId: string
             success_url: `${process.env.FRONTEND_STORE_URL}/cart?success=1`,
             cancel_url: `${process.env.FRONTEND_STORE_URL}/cart?canceled=1`,
             metadata: {
-                orderId: order.id,
-                userId,
+                orderId: order.id, // Pass orderId
+                userId, // Pass userId
             },
         });
 
-        return NextResponse.json({ url: session.url }, {
-            headers: {
-                'Access-Control-Allow-Origin': isAllowedOrigin ? origin : '*',
-                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-            },
-        });
+        return NextResponse.json(
+            { url: session.url },
+            {
+                headers: {
+                    'Access-Control-Allow-Origin': isAllowedOrigin ? origin : '*',
+                    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+                },
+            }
+        );
     } catch (error) {
         console.error('CHECKOUT_POST_ERROR', error);
-        return new NextResponse('Internal server error', {
-            status: 500,
-            headers: {
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-            },
-        });
+        return NextResponse.json(
+            { message: 'Internal server error' },
+            {
+                status: 500,
+                headers: {
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+                },
+            }
+        );
     }
 }
